@@ -1,0 +1,24 @@
+{
+  "servers": [
+    { "host": "http://localhost", "port": 3001, "weight": 3 },
+    { "host": "http://localhost", "port": 3002, "weight": 2 },
+    { "host": "http://localhost", "port": 3003, "weight": 1 }
+    ],
+      "loadBalancer": {
+        "algorithm": "weighted",
+        "port": 8088,
+        "useSSL": false,
+        "blockedRegions": ["CN", "RU", "KP"],
+        "rateLimit": 100,
+        "rateLimitWindow": 60000,
+        "healthCheckInterval": 10000,
+        "healthCheckTimeout": 5000,
+        "retryAttempts": 3,
+        "ipRateLimit": 50,
+        "ddosThreshold": 20
+      },
+      "ssl": {
+        "keyPath": "",
+        "certPath": ""
+      }
+    }
