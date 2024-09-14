@@ -8,29 +8,30 @@ This project is a scalable **load balancing** solution that supports both **weig
 
 
 ```
-loacbalancer
-├─ README.md
-├─ config-test.json
-├─ config.json
-├─ loadBalancer.js
-├─ package-lock.json
+├─ config
+│  ├─ config-test.json
+│  └─ config.json
+├─ lib
+│  ├─ balancer
+│  │  ├─ healthCheck.js
+│  │  └─ loadBalancerUtils.js
+│  ├─ cache
+│  │  └─ distributedCache.js
+│  ├─ security
+│  │  ├─ ddosProtection.js
+│  │  ├─ geoIPCheck.js
+│  │  └─ rateLimit.js
+│  └─ utils
+│     ├─ configValidator.js
+│     ├─ logService.js
+│     └─ performanceMonitor.js
 ├─ package.json
 ├─ routes
 │  └─ handleRequest.js
-├─ server.js
-├─ ssl
-├─ testRequests.js
-└─ utils
-   ├─ configValidator.js
-   ├─ ddosProtection.js
-   ├─ geoIPCheck.js
-   ├─ healthCheck.js
-   ├─ ipRateLimit.js
-   ├─ loadBalancerUtils.js
-   ├─ logService.js
-   ├─ performanceMonitor.js
-   ├─ rateLimit.js
-   └─ realTimeHealthMonitor.js
+└─ src
+   ├─ loadBalancer.js
+   ├─ server.js
+   └─ testRequests.js
 
 ```
 
@@ -130,31 +131,22 @@ Edit the config.json file according to your environment. Below is an example con
 Run the backend servers using the server.js script. These servers will be used by the load balancer to distribute traffic.
 
 ```bash
-node server.js
+node src/server.js
 ```
 
 ## Start the Load Balancer
 Start the load balancer using the following command:
 
 ```bash
-node loadBalancer.js
+node src/loadBalancer.js
 ```
 
 ## Run Automated Test Requests
 To send test requests to the load balancer:
 
 ```bash
-node testRequests.js
+node src/testRequests.js
 ```
-
-## Start Real-Time Server Monitoring
-Monitor the health and performance of the servers in real-time from the terminal:
-
-```bash
-node realTimeMonitor.js
-```
-
-This command will show real-time updates of CPU usage, memory usage, and the overall status of the servers.
 
 ## Logging
 All logs are saved in the logs/ directory. Logs are rotated daily and kept for 14 days.

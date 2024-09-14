@@ -1,6 +1,6 @@
 const http = require('http');
-const config = require('../config.json');
-const logger = require('../utils/logService');
+const config = require('../config/config.json');
+const logger = require('../lib/utils/logService');
 
 function handleRequest(req, res, targetServer) {
     return new Promise((resolve, reject) => {
