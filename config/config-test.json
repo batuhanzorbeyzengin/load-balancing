@@ -1,6 +1,6 @@
 {
   "test": {
-    "url": "http://localhost:8088",
+    "url": "http://localhost:8089",
     "totalRequests": 1000,
     "requestIntervalMs": 50
   }

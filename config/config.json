@@ -4,7 +4,7 @@
     { "host": "http://localhost", "port": 3002, "weight": 2 }
   ],
   "loadBalancer": {
-    "algorithm": "weighted",
+    "algorithm": "roundRobin",
     "port": 8088,
     "useSSL": false,
     "blockedRegions": ["CN", "RU"],
@@ -14,14 +14,16 @@
     "healthCheckTimeout": 5000,
     "retryAttempts": 3,
     "ipRateLimit": 50,
-    "ddosThreshold": 20
+    "ddosThreshold": 20,
+    "enableDdosProtection": false,
+    "enableIpBan": false
   },
   "ssl": {
     "keyPath": "",
     "certPath": ""
   },
   "ports": {
-    "http": 8088,
+    "http": 8089,
     "https": 443,
     "http3": 443
   },

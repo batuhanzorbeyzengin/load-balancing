@@ -18,21 +18,28 @@
 
 ## About the Project
 
-This Advanced Load Balancer is a robust, scalable solution designed to efficiently distribute incoming network traffic across multiple servers. It supports both weighted and least connections algorithms, real-time health monitoring, and includes advanced security features to protect against various types of attacks.
+This Advanced Load Balancer is a robust, scalable solution designed to efficiently distribute incoming network traffic across multiple servers. It supports multiple load balancing algorithms, real-time health monitoring, and includes advanced security features to protect against various types of attacks.
 
 ## Features
 
 1. **Load Balancing Algorithms**
-   - Weighted distribution
-   - Least connections
+   - Round Robin
+   - Weighted Round Robin
+   - Least Connections
+   - IP Hash
+   - Consistent Hashing
+   - Dynamic Weighted
+   - Least Response Time
+   - URL Hash
 
 2. **Sticky Sessions (Session Affinity)**
 
 3. **Advanced Security Features**
    - IP-based rate limiting
-   - DDoS protection
+   - DDoS protection (configurable)
    - Bot detection
    - Geo-blocking
+   - IP banning (configurable)
 
 4. **Real-Time Server Health Monitoring**
 
@@ -80,7 +87,7 @@ This Advanced Load Balancer is a robust, scalable solution designed to efficient
 
 ## Prerequisites
 
-- Node.js (v14.0.0 or later)
+- Node.js (v18.0.0 or later)
 - Redis (for caching and rate limiting)
 - Memcached (optional, for distributed caching)
 
@@ -88,12 +95,12 @@ This Advanced Load Balancer is a robust, scalable solution designed to efficient
 
 1. Clone the repository:
    ```
-   git clone https://github.com/your-username/advanced-load-balancer.git
+   git clone https://github.com/batuhanzorbeyzengin/load-balancing.git
    ```
 
 2. Navigate to the project directory:
    ```
-   cd advanced-load-balancer
+   cd load-balancing
    ```
 
 3. Install dependencies:
@@ -112,58 +119,72 @@ Edit the `config/config.json` file to match your environment:
 ```json
 {
   "servers": [
-    // Array of server objects. Each object represents a backend server.
-    { 
-      "host": "http://localhost", // String: The URL of the server
-      "port": 3001,               // Number: The port number
-      "weight": 3                 // Number: Weight for weighted algorithm (higher number = more traffic)
+    {
+      "host": "http://localhost",  // String: Server URL (Required)
+      "port": 3001,                // Number: Server port (Required)
+      "weight": 3                  // Number: Server weight for weighted algorithms (Optional, default: 1)
     },
-    { 
-      "host": "http://localhost", 
-      "port": 3002, 
-      "weight": 2 
+    {
+      "host": "http://localhost",
+      "port": 3002,
+      "weight": 2
     }
   ],
   "loadBalancer": {
-    "algorithm": "weighted",       // String: "weighted" or "leastConnections" - Determines how traffic is distributed
-    "port": 8088,                  // Number: The port on which the load balancer listens
-    "useSSL": false,               // Boolean: Whether to use SSL/TLS
-    "blockedRegions": ["CN", "RU"],// Array of Strings: Country codes to block (ISO Alpha-2)
-    "rateLimit": 100,              // Number: Maximum requests allowed per server in the rate limit window
-    "rateLimitWindow": 60000,      // Number: Time window for rate limiting in milliseconds
-    "healthCheckInterval": 10000,  // Number: Interval between health checks in milliseconds
-    "healthCheckTimeout": 5000,    // Number: Timeout for health checks in milliseconds
-    "retryAttempts": 3,            // Number: Number of retry attempts if a server is unavailable
-    "ipRateLimit": 50,             // Number: Maximum requests allowed per IP address
-    "ddosThreshold": 20            // Number: Threshold for detecting potential DDoS attacks
+    "algorithm": "roundRobin",     // String: Load balancing algorithm (Optional, default: "roundRobin")
+                                   // Possible values: "roundRobin", "weightedRoundRobin", "leastConnections", 
+                                   // "ipHash", "consistentHashing", "dynamicWeighted", "leastResponseTime", "urlHash"
+    "port": 8088,                  // Number: Port on which the load balancer listens (Required)
+    "useSSL": false,               // Boolean: Whether to use SSL/TLS (Required)
+    "blockedRegions": ["CN", "RU"],// Array of Strings: Country codes to block (Optional, default: [])
+    "rateLimit": 100,              // Number: Max requests per server in rate limit window (Required)
+    "rateLimitWindow": 60000,      // Number: Time window for rate limiting in ms (Required)
+    "healthCheckInterval": 10000,  // Number: Interval between health checks in ms (Required)
+    "healthCheckTimeout": 5000,    // Number: Timeout for health checks in ms (Required)
+    "retryAttempts": 3,            // Number: Retry attempts if a server is unavailable (Required)
+    "ipRateLimit": 50,             // Number: Max requests per IP in rate limit window (Required)
+    "ddosThreshold": 20,           // Number: Threshold for potential DDoS detection (Required)
+    "enableDdosProtection": true,  // Boolean: Whether to enable DDoS protection (Optional, default: true)
+    "enableIpBan": true            // Boolean: Whether to enable IP banning (Optional, default: true)
   },
-  "ssl": {
-    // SSL configuration (only used if useSSL is true)
-    "keyPath": "",                 // String: Path to the SSL private key file
-    "certPath": ""                 // String: Path to the SSL certificate file
+  "ssl": {  // SSL configuration (Required if useSSL is true, otherwise optional)
+    "keyPath": "",                 // String: Path to SSL private key file
+    "certPath": ""                 // String: Path to SSL certificate file
   },
   "ports": {
-    "http": 8088,                  // Number: Port for HTTP traffic
-    "https": 443,                  // Number: Port for HTTPS traffic
-    "http3": 443                   // Number: Port for HTTP/3 traffic
+    "http": 8088,                  // Number: Port for HTTP traffic (Required)
+    "https": 443,                  // Number: Port for HTTPS traffic (Required if useSSL is true)
+    "http3": 443                   // Number: Port for HTTP/3 traffic (Required if enableHTTP3 is true)
   },
-  "enableHTTP3": false,            // Boolean: Whether to enable HTTP/3 support
+  "enableHTTP3": false,            // Boolean: Whether to enable HTTP/3 support (Optional, default: false)
   "cache": {
-    "enabled": true,               // Boolean: Whether to enable caching
-    "type": "redis",               // String: "redis" or "memcached" - Type of caching system to use
-    "host": "localhost",           // String: Host of the caching server
-    "port": 6379,                  // Number: Port of the caching server
-    "ttl": 3600                    // Number: Time-to-live for cached items in seconds
+    "enabled": true,               // Boolean: Whether to enable caching (Optional, default: false)
+    "type": "redis",               // String: Type of cache to use (Required if cache is enabled)
+                                   // Possible values: "redis", "memcached"
+    "host": "localhost",           // String: Cache server host (Required if cache is enabled)
+    "port": 6379,                  // Number: Cache server port (Required if cache is enabled)
+    "ttl": 3600                    // Number: Time-to-live for cached items in seconds (Required if cache is enabled)
   },
   "logging": {
-    "level": "info",               // String: Logging level ("error", "warn", "info", "debug")
-    "file": ""                     // String: Path to log file (empty string for console logging only)
+    "level": "info",               // String: Logging level (Required)
+                                   // Possible values: "error", "warn", "info", "debug"
+    "file": ""                     // String: Path to log file (Optional, default: "" for console logging)
   },
   "healthReport": {
-    "interval": 300000             // Number: Interval for generating health reports in milliseconds
+    "interval": 300000             // Number: Interval for health reports in ms (Optional, default: 300000)
   }
 }
 ```
+
+Supported values for `algorithm` are:
+- `"roundRobin"`
+- `"weightedRoundRobin"`
+- `"leastConnections"`
+- `"ipHash"`
+- `"consistentHashing"`
+- `"dynamicWeighted"`
+- `"leastResponseTime"`
+- `"urlHash"`
 
 ## Usage
 
@@ -184,15 +205,22 @@ Edit the `config/config.json` file to match your environment:
 
 ## Load Balancing Algorithms
 
-- **Weighted**: Distributes traffic based on server weights defined in the configuration.
+- **Round Robin**: Distributes requests evenly across all servers in sequential order.
+- **Weighted Round Robin**: Similar to Round Robin, but servers with higher weights receive more requests.
 - **Least Connections**: Directs new requests to the server with the least active connections.
+- **IP Hash**: Uses the client's IP address to determine which server receives the request, ensuring session persistence.
+- **Consistent Hashing**: Minimizes redistribution of requests when servers are added or removed.
+- **Dynamic Weighted**: Adjusts server weights based on their current load and performance.
+- **Least Response Time**: Sends requests to the server with the lowest average response time.
+- **URL Hash**: Uses the requested URL to determine which server receives the request.
 
 ## Security Features
 
 - **IP-Based Rate Limiting**: Limits requests from a single IP within a specified time window.
-- **DDoS Protection**: Detects and mitigates potential DDoS attacks using various metrics.
+- **DDoS Protection**: Detects and mitigates potential DDoS attacks using various metrics. Can be enabled/disabled in configuration.
 - **Bot Detection**: Identifies and blocks requests from known bot user agents.
 - **Geo-Blocking**: Blocks requests from specified regions or countries.
+- **IP Banning**: Automatically bans IPs that exceed rate limits. Can be enabled/disabled in configuration.
 
 ## Monitoring and Logging
 
@@ -209,6 +237,9 @@ Adjust the following parameters in `config.json` for optimal performance:
 - `rateLimit` and `ipRateLimit`: Fine-tune to balance protection and high-traffic legitimate users.
 - `healthCheckInterval` and `healthCheckTimeout`: Adjust for more or less frequent health checks.
 - `cache.ttl`: Set appropriate cache time-to-live based on your application's data update frequency.
+- `algorithm`: Choose the most appropriate algorithm for your use case.
+- `enableDdosProtection`: Enable for enhanced security, disable for reduced overhead if not needed.
+- `enableIpBan`: Enable for stricter security, disable if temporary rate limiting is sufficient.
 
 ## Troubleshooting
 

@@ -1,15 +1,16 @@
 const http = require('http');
 const http2 = require('http2');
 const https = require('https');
-const quiche = require('quiche');
 const fs = require('fs');
+const url = require('url');
+const quiche = require('quiche');
 const config = require('../config/config.json');
 const handleRequest = require('../routes/handleRequest');
 const { monitorServerHealth } = require('../lib/balancer/healthCheck');
 const { monitorServerPerformance, initializeServerConnections, updateServerConnections, getLoadBalancerStats, logPeriodicHealthReport } = require('../lib/utils/performanceMonitor');
 const { isRegionBlocked } = require('../lib/security/geoIPCheck');
 const { isIPRateLimited, blockIP, isServerRateLimitExceeded, resetServerRateLimit } = require('../lib/security/rateLimit');
-const { getAvailableServer } = require('../lib/balancer/loadBalancerUtils');
+const loadBalancer = require('../lib/balancer/loadBalancerUtils');
 const { isPotentialAttack } = require('../lib/security/ddosProtection');
 const { cacheMiddleware } = require('../lib/cache/distributedCache');
 const logger = require('../lib/utils/logService');
@@ -18,6 +19,7 @@ const { validateConfig } = require('../lib/utils/configValidator');
 validateConfig(config);
 
 let serverConnections = initializeServerConnections();
+loadBalancer.initialize(serverConnections);
 
 const RATE_LIMIT_RECOVERY_TIME = 10000;
 
@@ -46,6 +48,7 @@ if (sslOptions) {
 
 async function processRequest(req, res) {
   const clientIP = req.socket.remoteAddress;
+  const parsedUrl = url.parse(req.url, true);
 
   if (isRegionBlocked(clientIP)) {
     logger.warn(`Request from blocked region (${clientIP}) denied.`);
@@ -64,7 +67,10 @@ async function processRequest(req, res) {
     return res.end('Too Many Requests');
   }
 
-  const targetServer = getAvailableServer(serverConnections);
+  const targetServer = loadBalancer.getServer(clientIP, {
+    host: req.headers.host,
+    url: parsedUrl.pathname
+  });
 
   if (!targetServer) {
     res.writeHead(503, { 'Content-Type': 'text/plain' });
@@ -84,54 +90,20 @@ async function processRequest(req, res) {
 
   updateServerConnections(targetServer, 1);
   
+  const startTime = Date.now();
+
   await cacheMiddleware(req, res, async () => {
     try {
-      await forwardRequest(targetServer, req, res);
-      logger.info(`Request to ${targetServer.host}:${targetServer.port} completed successfully.`);
+      await handleRequest(req, res, targetServer);
+      const responseTime = Date.now() - startTime;
+      loadBalancer.updateServerResponseTime(targetServer, responseTime);
+      logger.info(`Request to ${targetServer.host}:${targetServer.port} completed in ${responseTime}ms.`);
     } catch (err) {
       logger.error(`Error handling request to ${targetServer.host}:${targetServer.port}: ${err.message}`);
       res.writeHead(500);
       res.end('Internal Server Error');
     } finally {
       updateServerConnections(targetServer, -1);
-    }
-  });
-}
-
-function forwardRequest(server, req, res) {
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: server.host.replace(/^https?:\/\//, ''),
-      port: server.port,
-      path: req.url,
-      method: req.method,
-      headers: req.headers
-    };
-
-    let proxyReq;
-    if (req.httpVersion === '2.0') {
-      proxyReq = http2.request(options);
-    } else if (req.httpVersion === '3.0') {
-      proxyReq = quiche.request(options);
-    } else {
-      proxyReq = (server.host.startsWith('https') ? https : http).request(options);
-    }
-
-    proxyReq.on('response', (proxyRes) => {
-      res.writeHead(proxyRes.statusCode, proxyRes.headers);
-      proxyRes.pipe(res);
-      proxyRes.on('end', resolve);
-    });
-
-    proxyReq.on('error', (error) => {
-      logger.error(`Error forwarding request to ${server.host}:${server.port}: ${error.message}`);
-      reject(error);
-    });
-
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      req.pipe(proxyReq);
-    } else {
-      proxyReq.end();
     }
   });
 }
@@ -169,10 +141,17 @@ if (http3Server) {
   });
 }
 
-setInterval(() => {
+function updateServerHealth() {
   monitorServerHealth(serverConnections);
-  monitorServerPerformance(serverConnections);
-}, config.loadBalancer.healthCheckInterval);
+  serverConnections.forEach(server => {
+    const cpuUsage = server.health ? server.health.cpu / 100 : 0;
+    const memoryUsage = server.health ? server.health.memory / 100 : 0;
+    loadBalancer.updateServerLoad(server, cpuUsage, memoryUsage);
+  });
+}
+
+setInterval(updateServerHealth, config.loadBalancer.healthCheckInterval);
+setInterval(() => monitorServerPerformance(serverConnections), config.loadBalancer.healthCheckInterval);
 
 logPeriodicHealthReport(serverConnections);
 
